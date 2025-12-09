@@ -125,7 +125,7 @@ The system follows a **Lakehouse** pattern with three distinct data layers (Bron
     Hardware: 8GB+ RAM recommended.
 
 ## 🚀 Installation & Setup
- * **Clone the Repository**
+ **Clone the Repository**
 
     Bash
 
@@ -141,12 +141,12 @@ The system follows a **Lakehouse** pattern with three distinct data layers (Bron
 
     (Note: The CSV is ignored by Git due to size limits).
 
-* **Install Dependencies**
+**Install Dependencies**
 
     Bash
 
     uv sync
-# OR if using pip: pip install -r requirements.txt
+    OR if using pip: pip install -r requirements.txt
     Configure Environment Create a .env file in the root directory:
 
     Code snippet
