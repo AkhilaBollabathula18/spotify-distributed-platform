@@ -43,176 +43,178 @@ I engineered a distributed data platform using **Docker Containers**. The system
 The system follows a **Lakehouse** pattern with three distinct data layers (Bronze, Silver, Gold).
 
 ```mermaid
-graph LR
-    subgraph Ingestion ["Phase 1: Ingestion"]
-        A[CSV Dataset<br/>(1.16M Rows)] -->|Stream Read| B(Python ETL Script)
+    graph LR
+    subgraph Data_Sources["Phase 1: Ingestion"]
+        A["CSV Dataset (1.16M Rows)"] -->|Stream Read| B["Python Ingestion Script"]
     end
 
-    subgraph Storage ["Phase 2: Storage (Docker)"]
+    subgraph Storage["Phase 2: Storage (Docker)"]
         direction TB
-        B -->|Write| M1[(MongoDB Primary)]
-        M1 -.-|Replicate| M2[(MongoDB Secondary)]
-        M1 -.-|Replicate| M3[(MongoDB Secondary)]
+        B -->|Write Raw| M1["MongoDB Primary - Node 1"]
+        M1 -.->|Replicate| M2["MongoDB Secondary - Node 2"]
+        M1 -.->|Replicate| M3["MongoDB Secondary - Node 3"]
     end
 
-    subgraph Processing ["Phase 3: Processing"]
-        M1 -->|Batch Read| C{Pydantic Validation}
-        C -->|Valid Rows| D[Silver Layer<br/>(Clean Data)]
-        D -->|Aggregation| E[Gold Layer<br/>(Analytics)]
+    subgraph Processing["Phase 3: Processing (ETL)"]
+        M1 -->|Read Batch| C["Pydantic Validation (Schema Check)"]
+        C -->|Valid Rows| D["Silver Layer - Clean Data"]
+        D -->|Aggregation| E["Gold Layer - Summary Stats"]
     end
 
-    subgraph Viz ["Phase 4: Visualization"]
-        E -->|Query| F[Streamlit Dashboard]
-        D -->|Sample| F
+    subgraph Presentation["Phase 4: Visualization"]
+        E -->|Query Stats| F["Streamlit Dashboard"]
+        D -->|Sample Query| F
+        F --> G(("User View"))
     end
 
     style M1 fill:#47A248,stroke:#333,stroke-width:2px,color:white
     style M2 fill:#47A248,stroke:#333,stroke-width:2px,color:white
+    style M3 fill:#47A248,stroke:#333,stroke-width:2px,color:white
     style F fill:#FF4B4B,stroke:#333,stroke-width:2px,color:white
+```
+## 🛠 Technology Stack
+    Component	    Tool	            Justification
+    Infrastructure	Docker Compose	    Orchestrates the multi-node MongoDB cluster locally.
+    Database	    MongoDB (v7.0)	    NoSQL flexibility for JSON-like documents; Native sharding/replication support.
+    Language	    Python 3.11+	    Industry standard for data engineering.
+    Package Mgr	    uv	                Extremely fast replacement for pip.
+    Validation	    Pydantic	        Enforces strict data contracts (Schema-on-Write).
+    Processing	    Pandas	            Vectorized operations for efficient data manipulation.
+    Visualization	Streamlit	        Rapid development of interactive data dashboards.
+    Charts	        Plotly Express	    Interactive charts (Zoom, Pan, Hover) vs static Matplotlib images.
 
-🛠 Technology Stack
-Component	    Tool	            Justification
-Infrastructure	Docker Compose	    Orchestrates the multi-node MongoDB cluster locally.
-Database	    MongoDB (v7.0)	    NoSQL flexibility for JSON-like documents; Native sharding/replication support.
-Language	    Python 3.11+	    Industry standard for data engineering.
-Package Mgr	    uv	                Extremely fast replacement for pip.
-Validation	    Pydantic	        Enforces strict data contracts (Schema-on-Write).
-Processing	    Pandas	            Vectorized operations for efficient data manipulation.
-Visualization	Streamlit	        Rapid development of interactive data dashboards.
-Charts	        Plotly Express	    Interactive charts (Zoom, Pan, Hover) vs static Matplotlib images.
+## 🔄 Data Pipeline Strategy
+    We process data in three stages using a Medallion Architecture:
 
-🔄 Data Pipeline Strategy
-We process data in three stages using a Medallion Architecture:
+## 1. 🥉 Bronze Layer (Raw)
+    Collection: spotify_raw
 
-1. 🥉 Bronze Layer (Raw)
-Collection: spotify_raw
+    Action: Ingests CSV data "as-is".
 
-Action: Ingests CSV data "as-is".
+    Goal: capture the source of truth without modification.
 
-Goal: capture the source of truth without modification.
+## 2. 🥈 Silver Layer (Clean)
+    Collection: spotify_clean
 
-2. 🥈 Silver Layer (Clean)
-Collection: spotify_clean
+* **Action:**
 
-Action:
+    Removes duplicates based on track_id.
 
-Removes duplicates based on track_id.
+    Validates data types (e.g., danceability must be 0.0-1.0).
 
-Validates data types (e.g., danceability must be 0.0-1.0).
+    Standardizes text (Title Case for artists).
 
-Standardizes text (Title Case for artists).
+    Logic: Uses Python Generators to process 5,000 rows at a time to prevent OOM (Out of Memory) crashes.
 
-Logic: Uses Python Generators to process 5,000 rows at a time to prevent OOM (Out of Memory) crashes.
+## 3. 🥇 Gold Layer (Aggregated)
+* **Collections:** analytics_genre_stats, analytics_yearly_trends
 
-3. 🥇 Gold Layer (Aggregated)
-Collections: analytics_genre_stats, analytics_yearly_trends
+* **Action:** Uses MongoDB Aggregation Framework to pre-calculate insights.
 
-Action: Uses MongoDB Aggregation Framework to pre-calculate insights.
+* **Goal:** Fast read performance for the dashboard (no heavy computing on the fly).
 
-Goal: Fast read performance for the dashboard (no heavy computing on the fly).
+## ✅ Prerequisites
+    Before running, ensure you have:
 
-✅ Prerequisites
-Before running, ensure you have:
+    Docker Desktop installed and running (Green status).
 
-Docker Desktop installed and running (Green status).
+    Git installed.
 
-Git installed.
+    uv installed (or standard Python pip).
 
-uv installed (or standard Python pip).
+    Hardware: 8GB+ RAM recommended.
 
-Hardware: 8GB+ RAM recommended.
+## 🚀 Installation & Setup
+ * **Clone the Repository**
 
-🚀 Installation & Setup
-Clone the Repository
+    Bash
 
-Bash
+    git clone [https://github.com/YOUR_USERNAME/spotify-distributed-platform.git](https://github.com/YOUR_USERNAME/spotify-distributed-platform.git)
+    cd spotify-distributed-platform
+    Add the Data
 
-git clone [https://github.com/YOUR_USERNAME/spotify-distributed-platform.git](https://github.com/YOUR_USERNAME/spotify-distributed-platform.git)
-cd spotify-distributed-platform
-Add the Data
+    Download the dataset from Kaggle (Spotify Tracks Dataset).
 
-Download the dataset from Kaggle (Spotify Tracks Dataset).
+    Rename it to spotify_data.csv.
 
-Rename it to spotify_data.csv.
+    Place it inside the data/ folder.
 
-Place it inside the data/ folder.
+    (Note: The CSV is ignored by Git due to size limits).
 
-(Note: The CSV is ignored by Git due to size limits).
+* **Install Dependencies**
 
-Install Dependencies
+    Bash
 
-Bash
-
-uv sync
+    uv sync
 # OR if using pip: pip install -r requirements.txt
-Configure Environment Create a .env file in the root directory:
+    Configure Environment Create a .env file in the root directory:
 
-Code snippet
+    Code snippet
 
-MONGO_URI=mongodb://localhost:27017/
+    MONGO_URI=mongodb://localhost:27017/
 
-🏃‍♂️ Running the Pipeline
-Execute these commands in order to build the platform from scratch.
+## 🏃‍♂️ Running the Pipeline
+    Execute these commands in order to build the platform from scratch.
 
-Step 1: Ignite the Infrastructure
-Start the 3-node MongoDB cluster.
+    Step 1: Ignite the Infrastructure
+    Start the 3-node MongoDB cluster.
 
-Bash
+    Bash
 
-docker compose up -d
-Wait 30 seconds, then initialize the Replica Set:
+    docker compose up -d
+    Wait 30 seconds, then initialize the Replica Set:
 
-Bash
+    Bash
 
-docker exec -it mongo1 mongosh --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo1:27017'}, {_id: 1, host: 'mongo2:27017'}, {_id: 2, host: 'mongo3:27017'}]})"
-Step 2: Run the ETL Pipeline
-A. Ingest Raw Data (Bronze)
+    docker exec -it mongo1 mongosh --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo1:27017'}, {_id: 1, host: 'mongo2:27017'}, {_id: 2, host: 'mongo3:27017'}]})"
+    Step 2: Run the ETL Pipeline
+    A. Ingest Raw Data (Bronze)
 
-Bash
+    Bash
 
-uv run src/pipelines/ingest_raw.py
-B. Clean & Validate (Silver)
+    uv run src/pipelines/ingest_raw.py
+    B. Clean & Validate (Silver)
 
-Bash
+    Bash
 
-uv run src/pipelines/clean_silver.py
-C. Aggregate Insights (Gold)
+    uv run src/pipelines/clean_silver.py
+    C. Aggregate Insights (Gold)
 
-Bash
+    Bash
 
-uv run src/pipelines/aggregate_gold.py
-Step 3: Launch the Dashboard
-Bash
+    uv run src/pipelines/aggregate_gold.py
+    Step 3: Launch the Dashboard
+    Bash
 
-uv run streamlit run src/dashboard.py
-The app will open automatically at http://localhost:8501.
+    uv run streamlit run src/dashboard.py
+    The app will open automatically at http://localhost:8501.
 
-📊 Dashboard & Insights
-The dashboard provides 3 key views:
+## 📊 Dashboard & Insights
+    The dashboard provides 3 key views:
 
-Evolution of Music: Line charts tracking how songs have become shorter and louder from 2000 to 2023.
+    Evolution of Music: Line charts tracking how songs have become shorter and louder from 2000 to 2023.
 
-Genre Popularity: A horizontal bar chart identifying the most engaged genres (Pop, Hip-Hop, Metal).
+    Genre Popularity: A horizontal bar chart identifying the most engaged genres (Pop, Hip-Hop, Metal).
 
-The Mood Map: An interactive Scatter Plot (Energy vs. Valence) that clusters songs by emotion (Sad/Slow vs. Happy/Fast).
+    The Mood Map: An interactive Scatter Plot (Energy vs. Valence) that clusters songs by emotion (Sad/Slow vs. Happy/Fast).
 
-📂 Project Structure
+# 📂 Project Structure
 
-spotify-distributed-platform/
-├── data/                  # Local storage for CSV (Ignored by Git)
-├── src/
-│   ├── models/            # Pydantic Schema definitions
-│   ├── pipelines/         # ETL Scripts (Ingest, Clean, Aggregate)
-│   ├── utils/             # Database connection logic
-│   └── dashboard.py       # Streamlit App
-├── tests/                 # PyTest suite
-├── docker-compose.yml     # Cluster infrastructure
-├── pyproject.toml         # Dependency management
-└── README.md              # Documentation
+    spotify-distributed-platform/
+    ├── data/                  # Local storage for CSV (Ignored by Git)
+    ├── src/
+    │   ├── models/            # Pydantic Schema definitions
+    │   ├── pipelines/         # ETL Scripts (Ingest, Clean, Aggregate)
+    │   ├── utils/             # Database connection logic
+    │   └── dashboard.py       # Streamlit App
+    ├── tests/                 # PyTest suite
+    ├── docker-compose.yml     # Cluster infrastructure
+    ├── pyproject.toml         # Dependency management
+    └── README.md              # Documentation
 
-🧪 Testing
-Run the automated test suite to verify database connectivity and data integrity.
+## 🧪 Testing
+    Run the automated test suite to verify database connectivity and data integrity.
 
-Bash
+    Bash
 
-uv run pytest tests/test_pipeline.py
+    uv run pytest tests/test_pipeline.py
